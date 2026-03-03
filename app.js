@@ -21,8 +21,6 @@ const defaultState = {
     sharedPath: "",
     educationPath: "",
     kominNuProgramPath: "",
-    kominNuId: "",
-    kominNuPassword: "",
     scheduleImages: {
       staff: "",
       intern: "",
@@ -38,6 +36,12 @@ let calendarCursor = new Date(state.selectedDate);
 function loadState() {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   const merged = saved ? { ...defaultState, ...saved } : { ...defaultState };
+
+// Legacy cleanup: remove old komin NU credential keys if they remain in browser storage.
+  if (merged.settings) {
+    delete merged.settings.kominNuId;
+    delete merged.settings.kominNuPassword;
+  }
 
   if (merged.lastResetDate !== todayKey) {
     merged.patientsToday = [];
@@ -79,8 +83,6 @@ const el = {
   sharedPath: document.getElementById("sharedPath"),
   educationPath: document.getElementById("educationPath"),
   kominNuProgramPath: document.getElementById("kominNuProgramPath"),
-  kominNuId: document.getElementById("kominNuId"),
-  kominNuPassword: document.getElementById("kominNuPassword"),
   folderPickerInput: document.getElementById("folderPickerInput"),
   filePickerInput: document.getElementById("filePickerInput"),
   scheduleImageInput: document.getElementById("scheduleImageInput"),
@@ -336,30 +338,14 @@ function openPath(path) {
 
 function launchKominNu() {
   const programPath = (state.settings.kominNuProgramPath || "").trim();
-  const id = state.settings.kominNuId || "";
-  const password = state.settings.kominNuPassword || "";
 
   if (!programPath) {
     alert("전체 설정에서 komin nu 프로그램 경로를 입력해주세요.");
     return;
   }
-  if (!id || !password) {
-    alert("전체 설정에서 komin nu ID/비밀번호를 입력해주세요.");
-    return;
-  }
 
   const fileUrl = programPath.startsWith("file://") ? programPath : `file:///${programPath.replace(/\\/g, "/")}`;
   window.open(fileUrl, "_blank");
-
-  (async () => {
-    try {
-      await navigator.clipboard.writeText(`${id}	${password}
-`);
-      alert("ID/TAB/비밀번호/ENTER 시퀀스를 클립보드에 준비했습니다. 프로그램 창에서 Ctrl+V를 누르면 순서대로 입력됩니다.");
-    } catch (e) {
-      alert("브라우저 보안으로 자동 키입력이 제한됩니다. ID/TAB/비밀번호/ENTER 순서로 수동 입력해주세요.");
-    }
-  })();
 }
 
 
@@ -467,8 +453,6 @@ function initActions() {
     el.sharedPath.value = state.settings.sharedPath || "";
     el.educationPath.value = state.settings.educationPath || "";
     el.kominNuProgramPath.value = state.settings.kominNuProgramPath || "";
-    el.kominNuId.value = state.settings.kominNuId || "";
-    el.kominNuPassword.value = state.settings.kominNuPassword || "";
     el.settingsDialog.showModal();
   };
 
@@ -482,8 +466,6 @@ function initActions() {
     state.settings.sharedPath = el.sharedPath.value.trim();
     state.settings.educationPath = el.educationPath.value.trim();
     state.settings.kominNuProgramPath = el.kominNuProgramPath.value.trim();
-    state.settings.kominNuId = el.kominNuId.value.trim();
-    state.settings.kominNuPassword = el.kominNuPassword.value;
     saveState();
     el.settingsDialog.close();
   };
@@ -512,10 +494,15 @@ function initActions() {
     if (!f) return;
     try {
       const rows = await parseTabularFile(f);
-      importPatientRows(rows);
+      const result = importPatientRows(rows);
       saveState();
       renderPatients();
-      alert("환자 목록 불러오기를 완료했습니다.");
+      const recoverMsg = result.autoRecoveredWithoutFilter
+        ? "\n※ 교수 필터와 시트 형식이 맞지 않아, 자동으로 필터 없이 다시 불러왔습니다."
+        : "";
+      alert(
+        `환자 목록 불러오기 완료: ${result.importedCount}명 (원본 ${result.sourceCount}행, 필터 제외 ${result.filteredOutCount}행)${recoverMsg}`
+      );
     } catch (err) {
       console.error(err);
       alert("파일 불러오기 실패: 형식 또는 라이브러리 확인이 필요합니다.");
@@ -533,7 +520,9 @@ async function parseTabularFile(file) {
     const headers = headerLine.split(",").map((h) => h.trim());
     return lines.map((line) => {
       const cols = line.split(",");
-      return Object.fromEntries(headers.map((h, i) => [h, (cols[i] || "").trim()]));
+      const obj = Object.fromEntries(headers.map((h, i) => [h, (cols[i] || "").trim()]));
+      obj.__colD = (cols[3] || "").trim();
+      return obj;
     });
   }
 
@@ -541,28 +530,110 @@ async function parseTabularFile(file) {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array" });
   const sheetName = wb.SheetNames[0];
-  return XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
+  const sheet = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+  return rows.map((row, idx) => {
+    const dataRow = aoa[idx + 1] || [];
+    return {
+      ...row,
+      __colD: String(dataRow[3] || "").trim(),
+    };
+  });
 }
 
 function pick(obj, keys) {
+  const map = normalizeRowObject(obj);
+
   for (const key of keys) {
-    if (obj[key] !== undefined && String(obj[key]).trim() !== "") return String(obj[key]).trim();
+    const raw = obj[key];
+    if (raw !== undefined && String(raw).trim() !== "") return String(raw).trim();
+
+    const normalizedKey = normalizeHeaderKey(key);
+    if (map[normalizedKey] !== undefined && String(map[normalizedKey]).trim() !== "") {
+      return String(map[normalizedKey]).trim();
+    }
   }
   return "";
 }
 
-function importPatientRows(rows) {
-  const filters = state.settings.professorFilter;
+function normalizeHeaderKey(key) {
+  return String(key || "")
+    .toLowerCase()
+    .replace(/[\s_\-\/()\[\].]/g, "");
+}
+
+function normalizeRowObject(row) {
+  const out = {};
+  Object.entries(row || {}).forEach(([k, v]) => {
+    out[normalizeHeaderKey(k)] = v;
+  });
+  return out;
+}
+
+function extractNameAndRegNo(row) {
+  const patientInfo = pick(row, ["환자정보", "환자 정보", "patientinfo"]);
+  if (!patientInfo) return { name: "", regNo: "" };
+
+  const parts = String(patientInfo)
+    .split(/\r?\n|\s{2,}/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (!parts.length) return { name: "", regNo: "" };
+
+  const name = parts[0] || "";
+  const regNoCandidate = parts.find((x) => /^\d{6,}$/.test(x));
+  const regNo = regNoCandidate || parts[1] || "";
+  return { name, regNo };
+}
+
+function parseProfessorValue(rawProfessor) {
+  const chunks = String(rawProfessor || "")
+    .split(/\r?\n|\s+|\//)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  return {
+    primary: chunks[0] || "",
+    all: chunks,
+  };
+}
+
+function normalizeProfessorText(v) {
+  return String(v || "").replace(/\s+/g, "").trim();
+}
+
+function importPatientRowsWithFilter(rows, filters) {
   const imported = [];
+  let filteredOutCount = 0;
 
   rows.forEach((r) => {
-    const room = pick(r, ["병실", "room"]);
-    const regNo = pick(r, ["등록번호", "regNo", "차트번호"]);
-    const name = pick(r, ["환자명", "name"]);
-    const professor = pick(r, ["담당교수", "교수", "professor"]);
+    const room = pick(r, ["병실", "room", "Room"]);
+    const merged = extractNameAndRegNo(r);
+    const regNo = pick(r, ["등록번호", "regNo", "차트번호", "chartno"]) || merged.regNo;
+    const name = pick(r, ["환자명", "name", "환자이름"]) || merged.name;
+    const professorRaw = pick(r, ["__colD", "담당교수", "교수", "professor", "주치의"]);
+    const professorParsed = parseProfessorValue(professorRaw);
+    const professor = professorParsed.primary;
+    const backgroundFromSheet = pick(r, ["Background", "background", "과거력"]);
+    const diagnosisFromSheet = pick(r, ["Diagnosis", "diagnosis", "진단"]);
+    const noteFromSheet = pick(r, ["비고", "Remark", "remark", "메모"]);
 
     if (!name) return;
-    if (filters.length && !filters.includes(professor)) return;
+
+    if (filters.length) {
+      const professorTokens = professorParsed.all.map(normalizeProfessorText).filter(Boolean);
+      const matched = filters.some((f) => {
+        const nf = normalizeProfessorText(f);
+        return professorTokens.some((p) => p === nf || p.includes(nf) || nf.includes(p));
+      });
+      if (!matched) {
+        filteredOutCount += 1;
+        return;
+      }
+    }
 
     const key = `${regNo}::${name}`;
     const history = state.patientHistory[key] || {};
@@ -571,14 +642,34 @@ function importPatientRows(rows) {
       room,
       regNo,
       name,
-      professor,
-      background: history.background || "",
-      diagnosis: history.diagnosis || "",
-      note: history.note || "",
+      professor: professor || String(professorRaw || "").trim(),
+      background: history.background || backgroundFromSheet || "",
+      diagnosis: history.diagnosis || diagnosisFromSheet || "",
+      note: history.note || noteFromSheet || "",
     });
   });
 
+  return { imported, filteredOutCount };
+}
+
+function importPatientRows(rows) {
+  const configuredFilters = (state.settings.professorFilter || []).map((x) => x.trim()).filter(Boolean);
+  let { imported, filteredOutCount } = importPatientRowsWithFilter(rows, configuredFilters);
+
+  let autoRecoveredWithoutFilter = false;
+  if (!imported.length && configuredFilters.length) {
+    ({ imported } = importPatientRowsWithFilter(rows, []));
+    filteredOutCount = rows.length;
+    autoRecoveredWithoutFilter = true;
+  }
+
   state.patientsToday = imported;
+  return {
+    sourceCount: rows.length,
+    importedCount: imported.length,
+    filteredOutCount,
+    autoRecoveredWithoutFilter,
+  };
 }
 
 initActions();
