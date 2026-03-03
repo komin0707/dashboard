@@ -37,7 +37,7 @@ function loadState() {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   const merged = saved ? { ...defaultState, ...saved } : { ...defaultState };
 
-  // Legacy cleanup: remove old komin NU credential keys if they remain in browser storage.
+// Legacy cleanup: remove old komin NU credential keys if they remain in browser storage.
   if (merged.settings) {
     delete merged.settings.kominNuId;
     delete merged.settings.kominNuPassword;
