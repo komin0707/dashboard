@@ -351,15 +351,15 @@ function launchKominNu() {
   const fileUrl = programPath.startsWith("file://") ? programPath : `file:///${programPath.replace(/\\/g, "/")}`;
   window.open(fileUrl, "_blank");
 
-  setTimeout(async () => {
+  (async () => {
     try {
       await navigator.clipboard.writeText(`${id}	${password}
 `);
-      alert("komin nu 실행 후 2초 뒤 ID/TAB/비밀번호/ENTER 시퀀스를 클립보드에 준비했습니다. 프로그램 창에서 Ctrl+V를 누르면 순서대로 입력됩니다.");
+      alert("ID/TAB/비밀번호/ENTER 시퀀스를 클립보드에 준비했습니다. 프로그램 창에서 Ctrl+V를 누르면 순서대로 입력됩니다.");
     } catch (e) {
       alert("브라우저 보안으로 자동 키입력이 제한됩니다. ID/TAB/비밀번호/ENTER 순서로 수동 입력해주세요.");
     }
-  }, 2000);
+  })();
 }
 
 
