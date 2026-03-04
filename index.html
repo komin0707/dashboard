@@ -20,23 +20,13 @@
     <main class="layout">
       <section class="panel patient-panel">
         <div class="panel-header">
-          <h2>Patient List</h2>
+          <h2>게시판</h2>
           <div class="inline-actions">
-            <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
-            <button id="addPatientBtn">+ 환자 추가</button>
+            <input id="boardInput" placeholder="공지/메모 입력" />
+            <button id="addBoardBtn">등록</button>
           </div>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>병실</th>
-              <th>환자명</th>
-              <th>담당교수</th>
-              <th>상세</th>
-            </tr>
-          </thead>
-          <tbody id="patientTableBody"></tbody>
-        </table>
+        <ul id="boardList"></ul>
       </section>
 
       <section class="panel schedule-panel">
@@ -52,13 +42,20 @@
 
       <section class="panel calendar-panel">
         <div class="panel-header">
-          <h2>게시판</h2>
+          <h2>달력</h2>
           <div class="inline-actions">
-            <input id="boardInput" placeholder="공지/메모 입력" />
-            <button id="addBoardBtn">등록</button>
+            <button id="prevMonthBtn">◀</button>
+            <span id="calendarLabel"></span>
+            <button id="nextMonthBtn">▶</button>
+            <button id="goTodayBtn">오늘</button>
           </div>
         </div>
-        <ul id="boardList"></ul>
+        <div class="calendar-weekdays" id="calendarWeekdays"></div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+        <div class="selected-date-card">
+          <strong id="selectedDateLabel"></strong>
+          <ul id="selectedDateSchedules"></ul>
+        </div>
       </section>
 
       <section class="panel stats-panel">
@@ -80,25 +77,6 @@
         </div>
       </section>
     </main>
-
-    <dialog id="patientDialog">
-      <form id="patientForm" method="dialog">
-        <h3>환자 상세</h3>
-        <input type="hidden" id="patientId" />
-        <label>병실 <input id="room" required /></label>
-        <label>등록번호 <input id="regNo" required /></label>
-        <label>환자명 <input id="name" required /></label>
-        <label>담당교수 <input id="professor" required /></label>
-        <label>Background <textarea id="background"></textarea></label>
-        <label>Diagnosis <textarea id="diagnosis"></textarea></label>
-        <label>비고 <textarea id="note"></textarea></label>
-        <div class="dialog-actions">
-          <button type="button" id="deletePatientBtn" class="danger">삭제</button>
-          <button type="button" id="savePatientBtn">저장</button>
-          <button type="button" id="closePatientDialogBtn">닫기</button>
-        </div>
-      </form>
-    </dialog>
 
     <dialog id="settingsDialog">
       <form id="settingsForm" method="dialog">

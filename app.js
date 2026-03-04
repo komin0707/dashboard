@@ -182,6 +182,7 @@ function setupFilePickerButtons() {
 }
 
 function renderPatients() {
+  if (!el.body) return;
   el.body.innerHTML = "";
   for (const p of state.patientsToday) {
     const tr = document.createElement("tr");
@@ -460,10 +461,14 @@ function initActions() {
   setupFilePickerButtons();
   setupScheduleDialog();
 
-  document.getElementById("addPatientBtn").onclick = () => openPatientDialog();
-  document.getElementById("savePatientBtn").onclick = upsertPatientFromDialog;
-  document.getElementById("deletePatientBtn").onclick = deletePatientFromDialog;
-  document.getElementById("closePatientDialogBtn").onclick = () => el.patientDialog.close();
+  const addPatientBtn = document.getElementById("addPatientBtn");
+  const savePatientBtn = document.getElementById("savePatientBtn");
+  const deletePatientBtn = document.getElementById("deletePatientBtn");
+  const closePatientDialogBtn = document.getElementById("closePatientDialogBtn");
+  if (addPatientBtn) addPatientBtn.onclick = () => openPatientDialog();
+  if (savePatientBtn) savePatientBtn.onclick = upsertPatientFromDialog;
+  if (deletePatientBtn) deletePatientBtn.onclick = deletePatientFromDialog;
+  if (closePatientDialogBtn && el.patientDialog) closePatientDialogBtn.onclick = () => el.patientDialog.close();
 
   document.getElementById("addTodayScheduleBtn").onclick = addTodaySchedule;
   if (el.boardInput && document.getElementById("addBoardBtn")) {
@@ -535,7 +540,7 @@ function initActions() {
     document.getElementById("egfrResult").textContent = `예상 eGFR: ${egfr.toFixed(1)}`;
   };
 
-  el.excelInput.onchange = async (e) => {
+  if (el.excelInput) el.excelInput.onchange = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     try {
