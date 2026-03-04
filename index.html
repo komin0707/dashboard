@@ -150,7 +150,12 @@
 
         <input id="folderPickerInput" type="file" webkitdirectory directory multiple hidden />
         <input id="filePickerInput" type="file" hidden />
+        <input id="stateBackupInput" type="file" accept="application/json,.json" hidden />
         <small>※ 브라우저 보안 정책으로 절대경로는 자동입력이 제한될 수 있습니다. 필요 시 수동으로 경로를 입력하세요.</small>
+        <div class="inline-actions">
+          <button type="button" id="exportStateBtn">저장파일 내보내기</button>
+          <button type="button" id="importStateBtn">저장파일 불러오기</button>
+        </div>
         <div class="dialog-actions">
           <button type="button" id="saveSettingsBtn">설정 저장</button>
           <button type="button" id="closeSettingsBtn">닫기</button>

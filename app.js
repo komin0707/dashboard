@@ -1,4 +1,5 @@
 const STORAGE_KEY = "situation-room-v1";
+const BACKUP_FILE_PREFIX = "acs-dashboard-backup";
 const todayKey = new Date().toISOString().slice(0, 10);
 
 const defaultState = {
@@ -37,9 +38,15 @@ let state = loadState();
 let calendarCursor = new Date(state.selectedDate);
 let educationItems = [];
 let selectedEducationItemId = "";
+let storageWarningShown = false;
 
 function loadState() {
-  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  } catch (e) {
+    console.warn("저장된 상태를 읽지 못해 기본값으로 시작합니다.", e);
+  }
   const merged = saved ? { ...defaultState, ...saved } : { ...defaultState };
 
   if (merged.lastResetDate !== todayKey) {
@@ -50,7 +57,64 @@ function loadState() {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (e) {
+    console.warn("로컬 저장 실패", e);
+    if (!storageWarningShown) {
+      storageWarningShown = true;
+      alert("브라우저 저장(localStorage)에 실패했습니다. 설정의 '저장파일 내보내기'로 백업 파일을 사용해주세요.\n(사파리 시크릿 모드/저장공간 부족/브라우저 제한에서 발생할 수 있습니다)");
+    }
+    return false;
+  }
+}
+
+function downloadStateBackup() {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    storageKey: STORAGE_KEY,
+    state,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
+  a.href = url;
+  a.download = `${BACKUP_FILE_PREFIX}-${stamp}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importStateBackupFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || "{}"));
+      const imported = parsed?.state || parsed;
+      if (!imported || typeof imported !== "object") {
+        alert("유효한 저장파일(JSON)이 아닙니다.");
+        return;
+      }
+      state = { ...defaultState, ...imported };
+      ensureEducationCatalog();
+      ensureScheduleImagesState();
+      saveState();
+      calendarCursor = new Date(state.selectedDate || todayKey);
+      renderPatients();
+      renderBoardPosts();
+      renderTodaySchedule();
+      renderCalendar();
+      renderSelectedDateSchedules();
+      renderStats();
+      alert("저장파일을 불러왔습니다.");
+    } catch (e) {
+      console.warn("저장파일 불러오기 실패", e);
+      alert("저장파일을 읽는 중 오류가 발생했습니다.");
+    }
+  };
+  reader.readAsText(file);
 }
 
 function ensureEducationCatalog() {
@@ -136,6 +200,9 @@ const el = {
   clearScheduleImageBtn: document.getElementById("clearScheduleImageBtn"),
   schedulePreviewImage: document.getElementById("schedulePreviewImage"),
   schedulePreviewEmpty: document.getElementById("schedulePreviewEmpty"),
+  exportStateBtn: document.getElementById("exportStateBtn"),
+  importStateBtn: document.getElementById("importStateBtn"),
+  stateBackupInput: document.getElementById("stateBackupInput"),
 };
 
 const weekdayKo = ["일", "월", "화", "수", "목", "금", "토"];
@@ -562,7 +629,10 @@ function openPath(path) {
   }
 
   const fileUrl = toFileUrl(path);
-  window.open(fileUrl, "_blank");
+  const opened = window.open(fileUrl, "_blank");
+  if (!opened) {
+    alert("브라우저가 파일 열기를 차단했습니다.\n팝업 차단 해제 후 다시 시도하거나, 같은 PC에서 파일을 직접 실행해주세요.");
+  }
 }
 
 
@@ -575,7 +645,10 @@ function launchKominNu() {
   }
 
   const fileUrl = toFileUrl(programPath);
-  window.open(fileUrl, "_blank");
+  const opened = window.open(fileUrl, "_blank");
+  if (!opened) {
+    alert("브라우저 정책으로 실행이 차단되었습니다. Windows PC에서 직접 실행하거나 데스크톱 런처를 사용해주세요.");
+  }
 }
 
 function launchForceStop() {
@@ -585,7 +658,10 @@ function launchForceStop() {
     return;
   }
   const fileUrl = toFileUrl(programPath);
-  window.open(fileUrl, "_blank");
+  const opened = window.open(fileUrl, "_blank");
+  if (!opened) {
+    alert("브라우저 정책으로 실행이 차단되었습니다. Windows PC에서 직접 실행하거나 데스크톱 런처를 사용해주세요.");
+  }
 }
 
 
@@ -731,6 +807,15 @@ function initActions() {
   document.querySelector('[data-action="scheduleHub"]').onclick = openScheduleDialog;
 
   if (el.addEducationPdfBtn) el.addEducationPdfBtn.onclick = addEducationPdfFromSettings;
+  if (el.exportStateBtn) el.exportStateBtn.onclick = downloadStateBackup;
+  if (el.importStateBtn && el.stateBackupInput) {
+    el.importStateBtn.onclick = () => el.stateBackupInput.click();
+    el.stateBackupInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (file) importStateBackupFile(file);
+      e.target.value = "";
+    };
+  }
   if (el.uploadEducationPdfFileBtn && el.educationPdfFileInput) {
     el.uploadEducationPdfFileBtn.onclick = () => el.educationPdfFileInput.click();
     el.educationPdfFileInput.onchange = (e) => {
