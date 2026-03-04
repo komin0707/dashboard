@@ -92,7 +92,6 @@ const el = {
   boardInput: document.getElementById("boardInput"),
   boardList: document.getElementById("boardList"),
   statsContainer: document.getElementById("statsContainer"),
-  professorFilter: document.getElementById("professorFilter"),
   macroPath: document.getElementById("macroPath"),
   papersPath: document.getElementById("papersPath"),
   sharedPath: document.getElementById("sharedPath"),
@@ -679,7 +678,6 @@ function initActions() {
   };
 
   document.getElementById("openSettingsBtn").onclick = () => {
-    el.professorFilter.value = (state.settings.professorFilter || []).join(",");
     el.macroPath.value = state.settings.macroPath || "";
     el.papersPath.value = state.settings.papersPath || "";
     el.sharedPath.value = state.settings.sharedPath || "";
@@ -691,10 +689,6 @@ function initActions() {
   };
 
   document.getElementById("saveSettingsBtn").onclick = () => {
-    state.settings.professorFilter = el.professorFilter.value
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
     state.settings.macroPath = el.macroPath.value.trim();
     state.settings.papersPath = el.papersPath.value.trim();
     state.settings.sharedPath = el.sharedPath.value.trim();

@@ -81,15 +81,12 @@
     <dialog id="settingsDialog">
       <form id="settingsForm" method="dialog">
         <h3>전체 설정</h3>
-        <label>필터할 교수님(쉼표 구분)
-          <input id="professorFilter" placeholder="예: 김교수,이교수" />
-        </label>
 
         <div class="path-row">
-          <label for="macroPath">매크로 실행 폴더 경로</label>
+          <label for="macroPath">매크로 실행 파일 경로(.exe)</label>
           <div class="path-input-wrap">
-            <input id="macroPath" placeholder="예: \\server\share\macro" />
-            <button type="button" class="pick-folder-btn" data-target="macroPath">폴더 선택</button>
+            <input id="macroPath" placeholder="예: C:\\tools\\macro.exe" />
+            <button type="button" class="pick-file-btn" data-target="macroPath">파일 선택</button>
           </div>
         </div>
 
