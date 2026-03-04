@@ -185,6 +185,15 @@ tbody tr:hover {
   color: #d7e8ff;
 }
 
+#boardList {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+#boardList li {
+  margin-bottom: 6px;
+}
+
 .calendar-weekdays,
 .calendar-grid {
   display: grid;

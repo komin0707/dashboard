@@ -6,6 +6,7 @@ const defaultState = {
   patientsToday: [],
   patientHistory: {},
   schedules: {},
+  boardPosts: [],
   selectedDate: todayKey,
   stats: {
     erPatients: "",
@@ -20,6 +21,7 @@ const defaultState = {
     papersPath: "",
     sharedPath: "",
     educationPath: "",
+    forceStopPath: "",
     kominNuProgramPath: "",
     scheduleImages: {
       staff: "",
@@ -70,12 +72,15 @@ const el = {
   calendarGrid: document.getElementById("calendarGrid"),
   selectedDateLabel: document.getElementById("selectedDateLabel"),
   selectedDateSchedules: document.getElementById("selectedDateSchedules"),
+  boardInput: document.getElementById("boardInput"),
+  boardList: document.getElementById("boardList"),
   statsContainer: document.getElementById("statsContainer"),
   professorFilter: document.getElementById("professorFilter"),
   macroPath: document.getElementById("macroPath"),
   papersPath: document.getElementById("papersPath"),
   sharedPath: document.getElementById("sharedPath"),
   educationPath: document.getElementById("educationPath"),
+  forceStopPath: document.getElementById("forceStopPath"),
   kominNuProgramPath: document.getElementById("kominNuProgramPath"),
   folderPickerInput: document.getElementById("folderPickerInput"),
   filePickerInput: document.getElementById("filePickerInput"),
@@ -88,6 +93,7 @@ const el = {
 const weekdayKo = ["일", "월", "화", "수", "목", "금", "토"];
 
 function renderCalendarWeekdays() {
+  if (!el.calendarWeekdays) return;
   el.calendarWeekdays.innerHTML = "";
   weekdayKo.forEach((d) => {
     const div = document.createElement("div");
@@ -95,6 +101,32 @@ function renderCalendarWeekdays() {
     div.textContent = d;
     el.calendarWeekdays.appendChild(div);
   });
+}
+
+function renderBoardPosts() {
+  if (!el.boardList) return;
+  el.boardList.innerHTML = "";
+  (state.boardPosts || []).forEach((post, idx) => {
+    const li = document.createElement("li");
+    li.innerHTML = `${post} <button>삭제</button>`;
+    li.querySelector("button").onclick = () => {
+      state.boardPosts.splice(idx, 1);
+      saveState();
+      renderBoardPosts();
+    };
+    el.boardList.appendChild(li);
+  });
+}
+
+function addBoardPost() {
+  if (!el.boardInput) return;
+  const v = el.boardInput.value.trim();
+  if (!v) return;
+  state.boardPosts = state.boardPosts || [];
+  state.boardPosts.unshift(v);
+  el.boardInput.value = "";
+  saveState();
+  renderBoardPosts();
 }
 
 let folderTargetInputId = "";
@@ -219,7 +251,6 @@ function renderTodaySchedule() {
       state.schedules[todayKey] = list;
       saveState();
       renderTodaySchedule();
-      renderCalendar();
     };
     el.scheduleList.appendChild(li);
   });
@@ -234,10 +265,10 @@ function addTodaySchedule() {
   el.scheduleInput.value = "";
   saveState();
   renderTodaySchedule();
-  renderCalendar();
 }
 
 function renderCalendar() {
+  if (!el.calendarGrid || !el.calendarLabel) return;
   const year = calendarCursor.getFullYear();
   const month = calendarCursor.getMonth();
   el.calendarLabel.textContent = `${year}년 ${month + 1}월`;
@@ -272,6 +303,7 @@ function renderCalendar() {
 }
 
 function renderSelectedDateSchedules() {
+  if (!el.selectedDateLabel || !el.selectedDateSchedules) return;
   const selected = state.selectedDate;
   const list = state.schedules[selected] || [];
   el.selectedDateLabel.textContent = `선택일: ${selected}`;
@@ -338,6 +370,16 @@ function launchKominNu() {
     return;
   }
 
+  const fileUrl = programPath.startsWith("file://") ? programPath : `file:///${programPath.replace(/\\/g, "/")}`;
+  window.open(fileUrl, "_blank");
+}
+
+function launchForceStop() {
+  const programPath = (state.settings.forceStopPath || "").trim();
+  if (!programPath) {
+    alert("전체 설정에서 강제종료 실행 파일 경로를 입력해주세요.");
+    return;
+  }
   const fileUrl = programPath.startsWith("file://") ? programPath : `file:///${programPath.replace(/\\/g, "/")}`;
   window.open(fileUrl, "_blank");
 }
@@ -424,15 +466,22 @@ function initActions() {
   document.getElementById("closePatientDialogBtn").onclick = () => el.patientDialog.close();
 
   document.getElementById("addTodayScheduleBtn").onclick = addTodaySchedule;
-  document.getElementById("prevMonthBtn").onclick = () => {
+  if (el.boardInput && document.getElementById("addBoardBtn")) {
+    document.getElementById("addBoardBtn").onclick = addBoardPost;
+  }
+
+  const prevMonthBtn = document.getElementById("prevMonthBtn");
+  const nextMonthBtn = document.getElementById("nextMonthBtn");
+  const goTodayBtn = document.getElementById("goTodayBtn");
+  if (prevMonthBtn) prevMonthBtn.onclick = () => {
     calendarCursor.setMonth(calendarCursor.getMonth() - 1);
     renderCalendar();
   };
-  document.getElementById("nextMonthBtn").onclick = () => {
+  if (nextMonthBtn) nextMonthBtn.onclick = () => {
     calendarCursor.setMonth(calendarCursor.getMonth() + 1);
     renderCalendar();
   };
-  document.getElementById("goTodayBtn").onclick = () => {
+  if (goTodayBtn) goTodayBtn.onclick = () => {
     calendarCursor = new Date();
     state.selectedDate = todayKey;
     saveState();
@@ -446,6 +495,7 @@ function initActions() {
     el.papersPath.value = state.settings.papersPath || "";
     el.sharedPath.value = state.settings.sharedPath || "";
     el.educationPath.value = state.settings.educationPath || "";
+    el.forceStopPath.value = state.settings.forceStopPath || "";
     el.kominNuProgramPath.value = state.settings.kominNuProgramPath || "";
     el.settingsDialog.showModal();
   };
@@ -459,6 +509,7 @@ function initActions() {
     state.settings.papersPath = el.papersPath.value.trim();
     state.settings.sharedPath = el.sharedPath.value.trim();
     state.settings.educationPath = el.educationPath.value.trim();
+    state.settings.forceStopPath = el.forceStopPath.value.trim();
     state.settings.kominNuProgramPath = el.kominNuProgramPath.value.trim();
     saveState();
     el.settingsDialog.close();
@@ -471,6 +522,7 @@ function initActions() {
   document.querySelector('[data-action="education"]').onclick = () => openPath(state.settings.educationPath);
   document.querySelector('[data-action="calculator"]').onclick = () => el.calculatorDialog.showModal();
   document.querySelector('[data-action="kominNu"]').onclick = launchKominNu;
+  document.querySelector('[data-action="forceStop"]').onclick = launchForceStop;
   document.querySelector('[data-action="scheduleHub"]').onclick = openScheduleDialog;
 
   document.getElementById("runEgfrBtn").onclick = () => {
@@ -670,6 +722,7 @@ function importPatientRows(rows) {
 initActions();
 renderPatients();
 renderTodaySchedule();
+renderBoardPosts();
 renderCalendarWeekdays();
 renderCalendar();
 renderSelectedDateSchedules();
