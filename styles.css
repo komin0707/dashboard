@@ -422,6 +422,7 @@ small {
   display: flex;
   gap: 6px;
   flex: 0 0 auto;
+  align-items: center;
 }
 
 .education-item .active {
