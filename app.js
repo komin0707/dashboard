@@ -6,6 +6,7 @@ const defaultState = {
   patientsToday: [],
   patientHistory: {},
   schedules: {},
+  boardPosts: [],
   selectedDate: todayKey,
   stats: {
     erPatients: "",
@@ -20,7 +21,9 @@ const defaultState = {
     papersPath: "",
     sharedPath: "",
     educationPath: "",
+    forceStopPath: "",
     kominNuProgramPath: "",
+    educationPdfCatalog: [],
     scheduleImages: {
       staff: "",
       intern: "",
@@ -32,16 +35,12 @@ const defaultState = {
 
 let state = loadState();
 let calendarCursor = new Date(state.selectedDate);
+let educationItems = [];
+let selectedEducationPath = "";
 
 function loadState() {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   const merged = saved ? { ...defaultState, ...saved } : { ...defaultState };
-
-// Legacy cleanup: remove old komin NU credential keys if they remain in browser storage.
-  if (merged.settings) {
-    delete merged.settings.kominNuId;
-    delete merged.settings.kominNuPassword;
-  }
 
   if (merged.lastResetDate !== todayKey) {
     merged.patientsToday = [];
@@ -54,12 +53,25 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+function ensureEducationCatalog() {
+  if (!Array.isArray(state.settings.educationPdfCatalog)) {
+    state.settings.educationPdfCatalog = [];
+  }
+}
+
+function toFileUrl(path) {
+  const normalized = String(path || "").trim();
+  if (!normalized) return "";
+  return normalized.startsWith("file://") ? normalized : `file:///${normalized.replace(/\\/g, "/")}`;
+}
+
 const el = {
   body: document.getElementById("patientTableBody"),
   patientDialog: document.getElementById("patientDialog"),
   settingsDialog: document.getElementById("settingsDialog"),
   calculatorDialog: document.getElementById("calculatorDialog"),
   scheduleDialog: document.getElementById("scheduleDialog"),
+  educationDialog: document.getElementById("educationDialog"),
   patientId: document.getElementById("patientId"),
   room: document.getElementById("room"),
   regNo: document.getElementById("regNo"),
@@ -76,12 +88,23 @@ const el = {
   calendarGrid: document.getElementById("calendarGrid"),
   selectedDateLabel: document.getElementById("selectedDateLabel"),
   selectedDateSchedules: document.getElementById("selectedDateSchedules"),
+  boardInput: document.getElementById("boardInput"),
+  boardList: document.getElementById("boardList"),
   statsContainer: document.getElementById("statsContainer"),
   professorFilter: document.getElementById("professorFilter"),
   macroPath: document.getElementById("macroPath"),
   papersPath: document.getElementById("papersPath"),
   sharedPath: document.getElementById("sharedPath"),
   educationPath: document.getElementById("educationPath"),
+  educationPdfNameInput: document.getElementById("educationPdfNameInput"),
+  educationPdfPathInput: document.getElementById("educationPdfPathInput"),
+  addEducationPdfBtn: document.getElementById("addEducationPdfBtn"),
+  educationPdfCatalogList: document.getElementById("educationPdfCatalogList"),
+  educationCatalogSelect: document.getElementById("educationCatalogSelect"),
+  addEducationItemBtn: document.getElementById("addEducationItemBtn"),
+  educationItemList: document.getElementById("educationItemList"),
+  educationPdfViewer: document.getElementById("educationPdfViewer"),
+  forceStopPath: document.getElementById("forceStopPath"),
   kominNuProgramPath: document.getElementById("kominNuProgramPath"),
   folderPickerInput: document.getElementById("folderPickerInput"),
   filePickerInput: document.getElementById("filePickerInput"),
@@ -94,6 +117,7 @@ const el = {
 const weekdayKo = ["일", "월", "화", "수", "목", "금", "토"];
 
 function renderCalendarWeekdays() {
+  if (!el.calendarWeekdays) return;
   el.calendarWeekdays.innerHTML = "";
   weekdayKo.forEach((d) => {
     const div = document.createElement("div");
@@ -101,6 +125,133 @@ function renderCalendarWeekdays() {
     div.textContent = d;
     el.calendarWeekdays.appendChild(div);
   });
+}
+
+function renderBoardPosts() {
+  if (!el.boardList) return;
+  el.boardList.innerHTML = "";
+  (state.boardPosts || []).forEach((post, idx) => {
+    const li = document.createElement("li");
+    li.innerHTML = `${post} <button>삭제</button>`;
+    li.querySelector("button").onclick = () => {
+      state.boardPosts.splice(idx, 1);
+      saveState();
+      renderBoardPosts();
+    };
+    el.boardList.appendChild(li);
+  });
+}
+
+function addBoardPost() {
+  if (!el.boardInput) return;
+  const v = el.boardInput.value.trim();
+  if (!v) return;
+  state.boardPosts = state.boardPosts || [];
+  state.boardPosts.unshift(v);
+  el.boardInput.value = "";
+  saveState();
+  renderBoardPosts();
+}
+
+function renderEducationCatalogListInSettings() {
+  if (!el.educationPdfCatalogList) return;
+  ensureEducationCatalog();
+  el.educationPdfCatalogList.innerHTML = "";
+
+  state.settings.educationPdfCatalog.forEach((item, idx) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<strong>${item.name}</strong> - ${item.path} <button>삭제</button>`;
+    li.querySelector("button").onclick = () => {
+      state.settings.educationPdfCatalog.splice(idx, 1);
+      saveState();
+      renderEducationCatalogListInSettings();
+      renderEducationCatalogSelect();
+    };
+    el.educationPdfCatalogList.appendChild(li);
+  });
+}
+
+function addEducationPdfFromSettings() {
+  ensureEducationCatalog();
+  const name = (el.educationPdfNameInput?.value || "").trim();
+  const path = (el.educationPdfPathInput?.value || "").trim();
+  if (!name || !path) {
+    alert("교육명과 PDF 경로를 입력해주세요.");
+    return;
+  }
+
+  state.settings.educationPdfCatalog.push({ name, path });
+  if (el.educationPdfNameInput) el.educationPdfNameInput.value = "";
+  if (el.educationPdfPathInput) el.educationPdfPathInput.value = "";
+  saveState();
+  renderEducationCatalogListInSettings();
+  renderEducationCatalogSelect();
+}
+
+function renderEducationCatalogSelect() {
+  if (!el.educationCatalogSelect) return;
+  ensureEducationCatalog();
+  el.educationCatalogSelect.innerHTML = "";
+
+  if (!state.settings.educationPdfCatalog.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "설정에서 PDF를 먼저 추가하세요";
+    el.educationCatalogSelect.appendChild(opt);
+    return;
+  }
+
+  state.settings.educationPdfCatalog.forEach((item, idx) => {
+    const opt = document.createElement("option");
+    opt.value = String(idx);
+    opt.textContent = item.name;
+    el.educationCatalogSelect.appendChild(opt);
+  });
+}
+
+function renderEducationItems() {
+  if (!el.educationItemList) return;
+  el.educationItemList.innerHTML = "";
+
+  educationItems.forEach((item, idx) => {
+    const wrap = document.createElement("div");
+    wrap.className = "education-item";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = item.name;
+    btn.className = item.path === selectedEducationPath ? "active" : "";
+    btn.onclick = () => {
+      selectedEducationPath = item.path;
+      renderEducationItems();
+      renderEducationViewer();
+    };
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.textContent = "삭제";
+    del.onclick = () => {
+      const removed = educationItems.splice(idx, 1)[0];
+      if (selectedEducationPath === removed.path) selectedEducationPath = educationItems[0]?.path || "";
+      renderEducationItems();
+      renderEducationViewer();
+    };
+
+    wrap.appendChild(btn);
+    wrap.appendChild(del);
+    el.educationItemList.appendChild(wrap);
+  });
+}
+
+function renderEducationViewer() {
+  if (!el.educationPdfViewer) return;
+  el.educationPdfViewer.src = selectedEducationPath ? toFileUrl(selectedEducationPath) : "about:blank";
+}
+
+function openEducationDialog() {
+  renderEducationCatalogSelect();
+  renderEducationItems();
+  renderEducationViewer();
+  el.educationDialog?.showModal();
 }
 
 let folderTargetInputId = "";
@@ -156,6 +307,7 @@ function setupFilePickerButtons() {
 }
 
 function renderPatients() {
+  if (!el.body) return;
   el.body.innerHTML = "";
   for (const p of state.patientsToday) {
     const tr = document.createElement("tr");
@@ -225,7 +377,6 @@ function renderTodaySchedule() {
       state.schedules[todayKey] = list;
       saveState();
       renderTodaySchedule();
-      renderCalendar();
     };
     el.scheduleList.appendChild(li);
   });
@@ -240,10 +391,10 @@ function addTodaySchedule() {
   el.scheduleInput.value = "";
   saveState();
   renderTodaySchedule();
-  renderCalendar();
 }
 
 function renderCalendar() {
+  if (!el.calendarGrid || !el.calendarLabel) return;
   const year = calendarCursor.getFullYear();
   const month = calendarCursor.getMonth();
   el.calendarLabel.textContent = `${year}년 ${month + 1}월`;
@@ -278,6 +429,7 @@ function renderCalendar() {
 }
 
 function renderSelectedDateSchedules() {
+  if (!el.selectedDateLabel || !el.selectedDateSchedules) return;
   const selected = state.selectedDate;
   const list = state.schedules[selected] || [];
   el.selectedDateLabel.textContent = `선택일: ${selected}`;
@@ -344,6 +496,16 @@ function launchKominNu() {
     return;
   }
 
+  const fileUrl = programPath.startsWith("file://") ? programPath : `file:///${programPath.replace(/\\/g, "/")}`;
+  window.open(fileUrl, "_blank");
+}
+
+function launchForceStop() {
+  const programPath = (state.settings.forceStopPath || "").trim();
+  if (!programPath) {
+    alert("전체 설정에서 강제종료 실행 파일 경로를 입력해주세요.");
+    return;
+  }
   const fileUrl = programPath.startsWith("file://") ? programPath : `file:///${programPath.replace(/\\/g, "/")}`;
   window.open(fileUrl, "_blank");
 }
@@ -424,21 +586,32 @@ function initActions() {
   setupFilePickerButtons();
   setupScheduleDialog();
 
-  document.getElementById("addPatientBtn").onclick = () => openPatientDialog();
-  document.getElementById("savePatientBtn").onclick = upsertPatientFromDialog;
-  document.getElementById("deletePatientBtn").onclick = deletePatientFromDialog;
-  document.getElementById("closePatientDialogBtn").onclick = () => el.patientDialog.close();
+  const addPatientBtn = document.getElementById("addPatientBtn");
+  const savePatientBtn = document.getElementById("savePatientBtn");
+  const deletePatientBtn = document.getElementById("deletePatientBtn");
+  const closePatientDialogBtn = document.getElementById("closePatientDialogBtn");
+  if (addPatientBtn) addPatientBtn.onclick = () => openPatientDialog();
+  if (savePatientBtn) savePatientBtn.onclick = upsertPatientFromDialog;
+  if (deletePatientBtn) deletePatientBtn.onclick = deletePatientFromDialog;
+  if (closePatientDialogBtn && el.patientDialog) closePatientDialogBtn.onclick = () => el.patientDialog.close();
 
   document.getElementById("addTodayScheduleBtn").onclick = addTodaySchedule;
-  document.getElementById("prevMonthBtn").onclick = () => {
+  if (el.boardInput && document.getElementById("addBoardBtn")) {
+    document.getElementById("addBoardBtn").onclick = addBoardPost;
+  }
+
+  const prevMonthBtn = document.getElementById("prevMonthBtn");
+  const nextMonthBtn = document.getElementById("nextMonthBtn");
+  const goTodayBtn = document.getElementById("goTodayBtn");
+  if (prevMonthBtn) prevMonthBtn.onclick = () => {
     calendarCursor.setMonth(calendarCursor.getMonth() - 1);
     renderCalendar();
   };
-  document.getElementById("nextMonthBtn").onclick = () => {
+  if (nextMonthBtn) nextMonthBtn.onclick = () => {
     calendarCursor.setMonth(calendarCursor.getMonth() + 1);
     renderCalendar();
   };
-  document.getElementById("goTodayBtn").onclick = () => {
+  if (goTodayBtn) goTodayBtn.onclick = () => {
     calendarCursor = new Date();
     state.selectedDate = todayKey;
     saveState();
@@ -452,6 +625,8 @@ function initActions() {
     el.papersPath.value = state.settings.papersPath || "";
     el.sharedPath.value = state.settings.sharedPath || "";
     el.educationPath.value = state.settings.educationPath || "";
+    renderEducationCatalogListInSettings();
+    el.forceStopPath.value = state.settings.forceStopPath || "";
     el.kominNuProgramPath.value = state.settings.kominNuProgramPath || "";
     el.settingsDialog.showModal();
   };
@@ -465,6 +640,7 @@ function initActions() {
     state.settings.papersPath = el.papersPath.value.trim();
     state.settings.sharedPath = el.sharedPath.value.trim();
     state.settings.educationPath = el.educationPath.value.trim();
+    state.settings.forceStopPath = el.forceStopPath.value.trim();
     state.settings.kominNuProgramPath = el.kominNuProgramPath.value.trim();
     saveState();
     el.settingsDialog.close();
@@ -474,10 +650,26 @@ function initActions() {
   document.querySelector('[data-action="macro"]').onclick = () => openPath(state.settings.macroPath);
   document.querySelector('[data-action="papers"]').onclick = () => openPath(state.settings.papersPath);
   document.querySelector('[data-action="shared"]').onclick = () => openPath(state.settings.sharedPath);
-  document.querySelector('[data-action="education"]').onclick = () => openPath(state.settings.educationPath);
+  document.querySelector('[data-action="education"]').onclick = openEducationDialog;
   document.querySelector('[data-action="calculator"]').onclick = () => el.calculatorDialog.showModal();
   document.querySelector('[data-action="kominNu"]').onclick = launchKominNu;
+  document.querySelector('[data-action="forceStop"]').onclick = launchForceStop;
   document.querySelector('[data-action="scheduleHub"]').onclick = openScheduleDialog;
+
+  if (el.addEducationPdfBtn) el.addEducationPdfBtn.onclick = addEducationPdfFromSettings;
+  if (el.addEducationItemBtn) el.addEducationItemBtn.onclick = () => {
+    ensureEducationCatalog();
+    const idx = Number(el.educationCatalogSelect?.value || -1);
+    const picked = state.settings.educationPdfCatalog[idx];
+    if (!picked) {
+      alert("추가할 PDF를 선택해주세요.");
+      return;
+    }
+    educationItems.push({ name: picked.name, path: picked.path });
+    selectedEducationPath = picked.path;
+    renderEducationItems();
+    renderEducationViewer();
+  };
 
   document.getElementById("runEgfrBtn").onclick = () => {
     const age = Number(document.getElementById("age").value || 0);
@@ -489,7 +681,7 @@ function initActions() {
     document.getElementById("egfrResult").textContent = `예상 eGFR: ${egfr.toFixed(1)}`;
   };
 
-  el.excelInput.onchange = async (e) => {
+  if (el.excelInput) el.excelInput.onchange = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     try {
@@ -521,6 +713,8 @@ async function parseTabularFile(file) {
     return lines.map((line) => {
       const cols = line.split(",");
       const obj = Object.fromEntries(headers.map((h, i) => [h, (cols[i] || "").trim()]));
+      obj.__colA = (cols[0] || "").trim();
+      obj.__colB = (cols[1] || "").trim();
       obj.__colD = (cols[3] || "").trim();
       return obj;
     });
@@ -538,6 +732,8 @@ async function parseTabularFile(file) {
     const dataRow = aoa[idx + 1] || [];
     return {
       ...row,
+      __colA: String(dataRow[0] || "").trim(),
+      __colB: String(dataRow[1] || "").trim(),
       __colD: String(dataRow[3] || "").trim(),
     };
   });
@@ -610,16 +806,13 @@ function importPatientRowsWithFilter(rows, filters) {
   let filteredOutCount = 0;
 
   rows.forEach((r) => {
-    const room = pick(r, ["병실", "room", "Room"]);
+    const room = pick(r, ["__colA", "병실", "room", "Room"]);
     const merged = extractNameAndRegNo(r);
     const regNo = pick(r, ["등록번호", "regNo", "차트번호", "chartno"]) || merged.regNo;
-    const name = pick(r, ["환자명", "name", "환자이름"]) || merged.name;
+    const name = pick(r, ["__colB", "환자명", "name", "환자이름"]) || merged.name;
     const professorRaw = pick(r, ["__colD", "담당교수", "교수", "professor", "주치의"]);
     const professorParsed = parseProfessorValue(professorRaw);
     const professor = professorParsed.primary;
-    const backgroundFromSheet = pick(r, ["Background", "background", "과거력"]);
-    const diagnosisFromSheet = pick(r, ["Diagnosis", "diagnosis", "진단"]);
-    const noteFromSheet = pick(r, ["비고", "Remark", "remark", "메모"]);
 
     if (!name) return;
 
@@ -643,9 +836,9 @@ function importPatientRowsWithFilter(rows, filters) {
       regNo,
       name,
       professor: professor || String(professorRaw || "").trim(),
-      background: history.background || backgroundFromSheet || "",
-      diagnosis: history.diagnosis || diagnosisFromSheet || "",
-      note: history.note || noteFromSheet || "",
+      background: history.background || "",
+      diagnosis: history.diagnosis || "",
+      note: history.note || "",
     });
   });
 
@@ -673,8 +866,11 @@ function importPatientRows(rows) {
 }
 
 initActions();
+ensureEducationCatalog();
 renderPatients();
 renderTodaySchedule();
+renderBoardPosts();
+renderEducationCatalogSelect();
 renderCalendarWeekdays();
 renderCalendar();
 renderSelectedDateSchedules();

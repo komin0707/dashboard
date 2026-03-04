@@ -185,6 +185,15 @@ tbody tr:hover {
   color: #d7e8ff;
 }
 
+#boardList {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+#boardList li {
+  margin-bottom: 6px;
+}
+
 .calendar-weekdays,
 .calendar-grid {
   display: grid;
@@ -372,4 +381,53 @@ small {
 
 @media (max-width: 900px) {
   .schedule-form { min-width: 92vw; }
+}
+
+.education-setting-grid {
+  display: grid;
+  gap: 8px;
+}
+
+#educationPdfCatalogList {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+#educationPdfCatalogList li {
+  margin-bottom: 6px;
+}
+
+.education-form {
+  min-width: 1100px;
+}
+
+.education-top-controls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.education-item-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.education-item {
+  display: flex;
+  gap: 6px;
+}
+
+.education-item .active {
+  border-color: #4af0ff;
+  box-shadow: 0 0 0 2px #33d5ff33;
+}
+
+.education-viewer {
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid #5a81c9;
+  border-radius: 10px;
+  background: #fff;
 }

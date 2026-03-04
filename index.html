@@ -20,23 +20,13 @@
     <main class="layout">
       <section class="panel patient-panel">
         <div class="panel-header">
-          <h2>Patient List</h2>
+          <h2>게시판</h2>
           <div class="inline-actions">
-            <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
-            <button id="addPatientBtn">+ 환자 추가</button>
+            <input id="boardInput" placeholder="공지/메모 입력" />
+            <button id="addBoardBtn">등록</button>
           </div>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>병실</th>
-              <th>환자명</th>
-              <th>담당교수</th>
-              <th>상세</th>
-            </tr>
-          </thead>
-          <tbody id="patientTableBody"></tbody>
-        </table>
+        <ul id="boardList"></ul>
       </section>
 
       <section class="panel schedule-panel">
@@ -82,29 +72,11 @@
           <button data-action="shared">공폴열기</button>
           <button data-action="education">교육자료</button>
           <button data-action="kominNu">komin nu</button>
+          <button data-action="forceStop">강제종료</button>
           <button data-action="scheduleHub">스케줄</button>
         </div>
       </section>
     </main>
-
-    <dialog id="patientDialog">
-      <form id="patientForm" method="dialog">
-        <h3>환자 상세</h3>
-        <input type="hidden" id="patientId" />
-        <label>병실 <input id="room" required /></label>
-        <label>등록번호 <input id="regNo" required /></label>
-        <label>환자명 <input id="name" required /></label>
-        <label>담당교수 <input id="professor" required /></label>
-        <label>Background <textarea id="background"></textarea></label>
-        <label>Diagnosis <textarea id="diagnosis"></textarea></label>
-        <label>비고 <textarea id="note"></textarea></label>
-        <div class="dialog-actions">
-          <button type="button" id="deletePatientBtn" class="danger">삭제</button>
-          <button type="button" id="savePatientBtn">저장</button>
-          <button type="button" id="closePatientDialogBtn">닫기</button>
-        </div>
-      </form>
-    </dialog>
 
     <dialog id="settingsDialog">
       <form id="settingsForm" method="dialog">
@@ -142,6 +114,27 @@
           <div class="path-input-wrap">
             <input id="educationPath" placeholder="예: D:\\Education" />
             <button type="button" class="pick-folder-btn" data-target="educationPath">폴더 선택</button>
+          </div>
+        </div>
+
+        <div class="path-row">
+          <label>환자교육 PDF 연동</label>
+          <div class="education-setting-grid">
+            <input id="educationPdfNameInput" placeholder="교육명 (예: 수술 후 관리)" />
+            <div class="path-input-wrap">
+              <input id="educationPdfPathInput" placeholder="PDF 경로 (예: D:\\Education\\guide.pdf)" />
+              <button type="button" class="pick-file-btn" data-target="educationPdfPathInput">파일 선택</button>
+            </div>
+            <button type="button" id="addEducationPdfBtn">PDF 추가</button>
+          </div>
+          <ul id="educationPdfCatalogList"></ul>
+        </div>
+
+        <div class="path-row">
+          <label for="forceStopPath">강제종료 실행 파일 경로(.exe)</label>
+          <div class="path-input-wrap">
+            <input id="forceStopPath" placeholder="예: C:\\tools\\force-stop.exe" />
+            <button type="button" class="pick-file-btn" data-target="forceStopPath">파일 선택</button>
           </div>
         </div>
 
@@ -186,6 +179,21 @@
           <p id="schedulePreviewEmpty">등록된 사진이 없습니다.</p>
         </div>
 
+        <div class="dialog-actions">
+          <button>닫기</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="educationDialog">
+      <form method="dialog" class="education-form">
+        <h3>환자교육</h3>
+        <div class="education-top-controls">
+          <select id="educationCatalogSelect"></select>
+          <button type="button" id="addEducationItemBtn">추가</button>
+        </div>
+        <div id="educationItemList" class="education-item-list"></div>
+        <iframe id="educationPdfViewer" class="education-viewer" title="환자교육 PDF 뷰어"></iframe>
         <div class="dialog-actions">
           <button>닫기</button>
         </div>
