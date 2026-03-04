@@ -391,6 +391,8 @@ small {
 #educationPdfCatalogList {
   margin: 6px 0 0;
   padding-left: 18px;
+  max-height: 180px;
+  overflow-y: auto;
 }
 
 #educationPdfCatalogList li {
@@ -410,13 +412,16 @@ small {
 
 .education-item-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
 .education-item {
   display: flex;
   gap: 6px;
+  flex: 0 0 auto;
 }
 
 .education-item .active {

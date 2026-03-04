@@ -125,9 +125,13 @@
               <input id="educationPdfPathInput" placeholder="PDF 경로 (예: D:\\Education\\guide.pdf)" />
               <button type="button" class="pick-file-btn" data-target="educationPdfPathInput">파일 선택</button>
             </div>
-            <button type="button" id="addEducationPdfBtn">PDF 추가</button>
+            <div class="inline-actions">
+              <button type="button" id="addEducationPdfBtn">경로로 PDF 추가</button>
+              <button type="button" id="uploadEducationPdfFileBtn">PDF 파일 직접등록</button>
+            </div>
           </div>
           <ul id="educationPdfCatalogList"></ul>
+          <input id="educationPdfFileInput" type="file" accept=".pdf,application/pdf" hidden />
         </div>
 
         <div class="path-row">
