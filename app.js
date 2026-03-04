@@ -178,14 +178,22 @@ function addEducationPdfFromSettings() {
   ensureEducationCatalog();
   const name = (el.educationPdfNameInput?.value || "").trim();
   const path = (el.educationPdfPathInput?.value || "").trim();
-  if (!name || !path) {
-    alert("교육명과 PDF 경로를 입력해주세요.");
+  const dataUrl = String(el.educationPdfPathInput?.dataset?.dataUrl || "");
+  if (!name || (!path && !dataUrl)) {
+    alert("교육명과 PDF 파일(또는 경로)을 입력해주세요.");
     return;
   }
 
-  state.settings.educationPdfCatalog.push({ name, path });
+  state.settings.educationPdfCatalog.push({
+    name,
+    path: dataUrl ? "" : path,
+    dataUrl,
+  });
   if (el.educationPdfNameInput) el.educationPdfNameInput.value = "";
-  if (el.educationPdfPathInput) el.educationPdfPathInput.value = "";
+  if (el.educationPdfPathInput) {
+    el.educationPdfPathInput.value = "";
+    delete el.educationPdfPathInput.dataset.dataUrl;
+  }
   saveState();
   renderEducationCatalogListInSettings();
   renderEducationCatalogSelect();
@@ -331,6 +339,17 @@ function setupFilePickerButtons() {
     const target = document.getElementById(fileTargetInputId);
     const file = e.target.files?.[0];
     if (!target || !file) return;
+
+    if (fileTargetInputId === "educationPdfPathInput") {
+      const reader = new FileReader();
+      reader.onload = () => {
+        target.dataset.dataUrl = String(reader.result || "");
+        target.value = file.name;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+      return;
+    }
 
     target.value = file.name;
     e.target.value = "";
