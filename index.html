@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ACS Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="title-wrap">
+        <h1>🏥 ACS Dashboard</h1>
+        <span class="server-badge">Server IP: 10.30.50.233</span>
+      </div>
+      <button id="openSettingsBtn" class="icon-btn" title="전체 설정">⚙️</button>
+    </header>
+
+    <main class="layout">
+      <section class="panel patient-panel">
+        <div class="panel-header">
+          <h2>게시판</h2>
+          <div class="inline-actions">
+            <input id="boardInput" placeholder="공지/메모 입력" />
+            <button id="addBoardBtn">등록</button>
+          </div>
+        </div>
+        <ul id="boardList"></ul>
+      </section>
+
+      <section class="panel schedule-panel">
+        <div class="panel-header">
+          <h2 id="schedulePanelTitle">일정</h2>
+          <div class="inline-actions">
+            <input id="todayScheduleInput" placeholder="선택일 일정 추가" />
+            <button id="addTodayScheduleBtn">추가</button>
+          </div>
+        </div>
+        <ul id="todayScheduleList"></ul>
+      </section>
+
+      <section class="panel calendar-panel">
+        <div class="panel-header">
+          <h2>달력</h2>
+          <div class="inline-actions">
+            <button id="prevMonthBtn">◀</button>
+            <span id="calendarLabel"></span>
+            <button id="nextMonthBtn">▶</button>
+            <button id="goTodayBtn">오늘</button>
+          </div>
+        </div>
+        <div class="calendar-weekdays" id="calendarWeekdays"></div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+        <div class="selected-date-card">
+          <strong id="selectedDateLabel"></strong>
+          <ul id="selectedDateSchedules"></ul>
+        </div>
+      </section>
+
+      <section class="panel stats-panel">
+        <div class="panel-header"><h2>월간 지표</h2></div>
+        <div id="statsContainer" class="stats-grid"></div>
+      </section>
+
+      <section class="panel action-panel">
+        <div class="panel-header"><h2>바로가기</h2></div>
+        <div class="button-grid">
+          <button data-action="macro">매크로</button>
+          <button data-action="calculator">계산기</button>
+          <button data-action="papers">논문</button>
+          <button data-action="shared">공폴열기</button>
+          <button data-action="education">교육자료</button>
+          <button data-action="kominNu">komin nu</button>
+          <button data-action="forceStop">강제종료</button>
+          <button data-action="scheduleHub">스케줄</button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="settingsDialog">
+      <form id="settingsForm" method="dialog">
+        <h3>전체 설정</h3>
+        <label>필터할 교수님(쉼표 구분)
+          <input id="professorFilter" placeholder="예: 김교수,이교수" />
+        </label>
+
+        <div class="path-row">
+          <label for="macroPath">매크로 실행 폴더 경로</label>
+          <div class="path-input-wrap">
+            <input id="macroPath" placeholder="예: \\server\share\macro" />
+            <button type="button" class="pick-folder-btn" data-target="macroPath">폴더 선택</button>
+          </div>
+        </div>
+
+        <div class="path-row">
+          <label for="papersPath">논문 폴더 경로</label>
+          <div class="path-input-wrap">
+            <input id="papersPath" placeholder="예: D:\\Papers" />
+            <button type="button" class="pick-folder-btn" data-target="papersPath">폴더 선택</button>
+          </div>
+        </div>
+
+        <div class="path-row">
+          <label for="sharedPath">공유폴더 경로</label>
+          <div class="path-input-wrap">
+            <input id="sharedPath" placeholder="예: \\10.30.50.233\share" />
+            <button type="button" class="pick-folder-btn" data-target="sharedPath">폴더 선택</button>
+          </div>
+        </div>
+
+        <div class="path-row">
+          <label for="educationPath">교육자료 폴더 경로</label>
+          <div class="path-input-wrap">
+            <input id="educationPath" placeholder="예: D:\\Education" />
+            <button type="button" class="pick-folder-btn" data-target="educationPath">폴더 선택</button>
+          </div>
+        </div>
+
+        <div class="path-row">
+          <label>환자교육 PDF 연동</label>
+          <div class="education-setting-grid">
+            <input id="educationPdfNameInput" placeholder="교육명 (예: 수술 후 관리)" />
+            <div class="path-input-wrap">
+              <input id="educationPdfPathInput" placeholder="PDF 경로 (예: D:\\Education\\guide.pdf)" />
+              <button type="button" class="pick-file-btn" data-target="educationPdfPathInput">파일 선택</button>
+            </div>
+            <div class="inline-actions">
+              <button type="button" id="addEducationPdfBtn">경로로 PDF 추가</button>
+              <button type="button" id="uploadEducationPdfFileBtn">PDF 파일 직접등록</button>
+            </div>
+          </div>
+          <ul id="educationPdfCatalogList"></ul>
+          <input id="educationPdfFileInput" type="file" accept=".pdf,application/pdf" hidden />
+        </div>
+
+        <div class="path-row">
+          <label for="forceStopPath">강제종료 실행 파일 경로(.exe)</label>
+          <div class="path-input-wrap">
+            <input id="forceStopPath" placeholder="예: C:\\tools\\force-stop.exe" />
+            <button type="button" class="pick-file-btn" data-target="forceStopPath">파일 선택</button>
+          </div>
+        </div>
+
+        
+        <div class="path-row">
+          <label for="kominNuProgramPath">komin nu 프로그램 경로(.exe)</label>
+          <div class="path-input-wrap">
+            <input id="kominNuProgramPath" placeholder="예: C:\Program Files\KominNU\KominNU.exe" />
+            <button type="button" class="pick-file-btn" data-target="kominNuProgramPath">파일 선택</button>
+          </div>
+        </div>
+
+        <input id="folderPickerInput" type="file" webkitdirectory directory multiple hidden />
+        <input id="filePickerInput" type="file" hidden />
+        <small>※ 브라우저 보안 정책으로 절대경로는 자동입력이 제한될 수 있습니다. 필요 시 수동으로 경로를 입력하세요.</small>
+        <div class="dialog-actions">
+          <button type="button" id="saveSettingsBtn">설정 저장</button>
+          <button type="button" id="closeSettingsBtn">닫기</button>
+        </div>
+      </form>
+    </dialog>
+
+
+
+    <dialog id="scheduleDialog">
+      <form method="dialog" class="schedule-form">
+        <h3>스케줄 센터</h3>
+        <div class="schedule-btn-row">
+          <button type="button" class="schedule-type-btn" data-schedule-type="staff">스탭 스케줄</button>
+          <button type="button" class="schedule-type-btn" data-schedule-type="intern">인턴스케줄</button>
+          <button type="button" class="schedule-type-btn" data-schedule-type="outpatient">외래스케줄</button>
+          <button type="button" class="schedule-type-btn" data-schedule-type="or">수술방스케줄</button>
+        </div>
+
+        <div class="schedule-image-controls">
+          <input id="scheduleImageInput" type="file" accept="image/*" />
+          <button type="button" id="clearScheduleImageBtn">현재 사진 삭제</button>
+        </div>
+
+        <div class="schedule-image-viewer">
+          <img id="schedulePreviewImage" alt="스케줄 이미지 미리보기" />
+          <p id="schedulePreviewEmpty">등록된 사진이 없습니다.</p>
+        </div>
+
+        <div class="dialog-actions">
+          <button>닫기</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="educationDialog">
+      <form method="dialog" class="education-form">
+        <h3>환자교육</h3>
+        <div class="education-top-controls">
+          <select id="educationCatalogSelect"></select>
+          <button type="button" id="addEducationItemBtn">추가</button>
+        </div>
+        <div id="educationItemList" class="education-item-list"></div>
+        <iframe id="educationPdfViewer" class="education-viewer" title="환자교육 PDF 뷰어"></iframe>
+        <div class="dialog-actions">
+          <button>닫기</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="calculatorDialog">
+      <form method="dialog" class="calc-form">
+        <h3>계산기</h3>
+        <div>
+          <h4>크레아티닌 eGFR (간이)</h4>
+          <label>나이 <input id="age" type="number" /></label>
+          <label>Scr <input id="scr" type="number" step="0.01" /></label>
+          <label>성별
+            <select id="sex">
+              <option value="m">남</option>
+              <option value="f">여</option>
+            </select>
+          </label>
+          <button type="button" id="runEgfrBtn">계산</button>
+          <p id="egfrResult"></p>
+        </div>
+        <button>닫기</button>
+      </form>
+    </dialog>
+  </body>
+</html>
