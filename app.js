@@ -36,7 +36,7 @@ const defaultState = {
 let state = loadState();
 let calendarCursor = new Date(state.selectedDate);
 let educationItems = [];
-let selectedEducationPath = "";
+let selectedEducationItemId = "";
 
 function loadState() {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
@@ -99,6 +99,8 @@ const el = {
   educationPdfNameInput: document.getElementById("educationPdfNameInput"),
   educationPdfPathInput: document.getElementById("educationPdfPathInput"),
   addEducationPdfBtn: document.getElementById("addEducationPdfBtn"),
+  uploadEducationPdfFileBtn: document.getElementById("uploadEducationPdfFileBtn"),
+  educationPdfFileInput: document.getElementById("educationPdfFileInput"),
   educationPdfCatalogList: document.getElementById("educationPdfCatalogList"),
   educationCatalogSelect: document.getElementById("educationCatalogSelect"),
   addEducationItemBtn: document.getElementById("addEducationItemBtn"),
@@ -160,7 +162,8 @@ function renderEducationCatalogListInSettings() {
 
   state.settings.educationPdfCatalog.forEach((item, idx) => {
     const li = document.createElement("li");
-    li.innerHTML = `<strong>${item.name}</strong> - ${item.path} <button>삭제</button>`;
+    const srcText = item.path || (item.dataUrl ? "(직접등록 PDF)" : "");
+    li.innerHTML = `<strong>${item.name}</strong> - ${srcText} <button>삭제</button>`;
     li.querySelector("button").onclick = () => {
       state.settings.educationPdfCatalog.splice(idx, 1);
       saveState();
@@ -175,17 +178,48 @@ function addEducationPdfFromSettings() {
   ensureEducationCatalog();
   const name = (el.educationPdfNameInput?.value || "").trim();
   const path = (el.educationPdfPathInput?.value || "").trim();
-  if (!name || !path) {
-    alert("교육명과 PDF 경로를 입력해주세요.");
+  const dataUrl = String(el.educationPdfPathInput?.dataset?.dataUrl || "");
+  if (!name || (!path && !dataUrl)) {
+    alert("교육명과 PDF 파일(또는 경로)을 입력해주세요.");
     return;
   }
 
-  state.settings.educationPdfCatalog.push({ name, path });
+  state.settings.educationPdfCatalog.push({
+    name,
+    path: dataUrl ? "" : path,
+    dataUrl,
+  });
   if (el.educationPdfNameInput) el.educationPdfNameInput.value = "";
-  if (el.educationPdfPathInput) el.educationPdfPathInput.value = "";
+  if (el.educationPdfPathInput) {
+    el.educationPdfPathInput.value = "";
+    delete el.educationPdfPathInput.dataset.dataUrl;
+  }
   saveState();
   renderEducationCatalogListInSettings();
   renderEducationCatalogSelect();
+}
+
+function addEducationPdfByFile(file) {
+  const name = (el.educationPdfNameInput?.value || file?.name || "").trim();
+  if (!file || !name) {
+    alert("교육명과 PDF 파일을 확인해주세요.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    ensureEducationCatalog();
+    state.settings.educationPdfCatalog.push({
+      name,
+      path: "",
+      dataUrl: String(reader.result || ""),
+    });
+    if (el.educationPdfNameInput) el.educationPdfNameInput.value = "";
+    saveState();
+    renderEducationCatalogListInSettings();
+    renderEducationCatalogSelect();
+  };
+  reader.readAsDataURL(file);
 }
 
 function renderEducationCatalogSelect() {
@@ -219,9 +253,9 @@ function renderEducationItems() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = item.name;
-    btn.className = item.path === selectedEducationPath ? "active" : "";
+    btn.className = item.id === selectedEducationItemId ? "active" : "";
     btn.onclick = () => {
-      selectedEducationPath = item.path;
+      selectedEducationItemId = item.id;
       renderEducationItems();
       renderEducationViewer();
     };
@@ -231,7 +265,7 @@ function renderEducationItems() {
     del.textContent = "삭제";
     del.onclick = () => {
       const removed = educationItems.splice(idx, 1)[0];
-      if (selectedEducationPath === removed.path) selectedEducationPath = educationItems[0]?.path || "";
+      if (selectedEducationItemId === removed.id) selectedEducationItemId = educationItems[0]?.id || "";
       renderEducationItems();
       renderEducationViewer();
     };
@@ -244,7 +278,12 @@ function renderEducationItems() {
 
 function renderEducationViewer() {
   if (!el.educationPdfViewer) return;
-  el.educationPdfViewer.src = selectedEducationPath ? toFileUrl(selectedEducationPath) : "about:blank";
+  const selected = educationItems.find((x) => x.id === selectedEducationItemId);
+  if (!selected) {
+    el.educationPdfViewer.src = "about:blank";
+    return;
+  }
+  el.educationPdfViewer.src = selected.dataUrl || toFileUrl(selected.path);
 }
 
 function openEducationDialog() {
@@ -300,6 +339,17 @@ function setupFilePickerButtons() {
     const target = document.getElementById(fileTargetInputId);
     const file = e.target.files?.[0];
     if (!target || !file) return;
+
+    if (fileTargetInputId === "educationPdfPathInput") {
+      const reader = new FileReader();
+      reader.onload = () => {
+        target.dataset.dataUrl = String(reader.result || "");
+        target.value = file.name;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+      return;
+    }
 
     target.value = file.name;
     e.target.value = "";
@@ -657,6 +707,14 @@ function initActions() {
   document.querySelector('[data-action="scheduleHub"]').onclick = openScheduleDialog;
 
   if (el.addEducationPdfBtn) el.addEducationPdfBtn.onclick = addEducationPdfFromSettings;
+  if (el.uploadEducationPdfFileBtn && el.educationPdfFileInput) {
+    el.uploadEducationPdfFileBtn.onclick = () => el.educationPdfFileInput.click();
+    el.educationPdfFileInput.onchange = (e) => {
+      const f = e.target.files?.[0];
+      if (f) addEducationPdfByFile(f);
+      e.target.value = "";
+    };
+  }
   if (el.addEducationItemBtn) el.addEducationItemBtn.onclick = () => {
     ensureEducationCatalog();
     const idx = Number(el.educationCatalogSelect?.value || -1);
@@ -665,8 +723,13 @@ function initActions() {
       alert("추가할 PDF를 선택해주세요.");
       return;
     }
-    educationItems.push({ name: picked.name, path: picked.path });
-    selectedEducationPath = picked.path;
+    educationItems.push({
+      id: crypto.randomUUID(),
+      name: picked.name,
+      path: picked.path || "",
+      dataUrl: picked.dataUrl || "",
+    });
+    selectedEducationItemId = educationItems[educationItems.length - 1].id;
     renderEducationItems();
     renderEducationViewer();
   };
