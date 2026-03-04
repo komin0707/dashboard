@@ -83,6 +83,7 @@ const el = {
   excelInput: document.getElementById("excelInput"),
   scheduleList: document.getElementById("todayScheduleList"),
   scheduleInput: document.getElementById("todayScheduleInput"),
+  schedulePanelTitle: document.getElementById("schedulePanelTitle"),
   calendarLabel: document.getElementById("calendarLabel"),
   calendarWeekdays: document.getElementById("calendarWeekdays"),
   calendarGrid: document.getElementById("calendarGrid"),
@@ -418,16 +419,19 @@ function deletePatientFromDialog() {
 }
 
 function renderTodaySchedule() {
-  const list = state.schedules[todayKey] || [];
+  const scheduleDate = state.selectedDate || todayKey;
+  const list = state.schedules[scheduleDate] || [];
+  if (el.schedulePanelTitle) el.schedulePanelTitle.textContent = `${scheduleDate} 일정`;
   el.scheduleList.innerHTML = "";
   list.forEach((item, idx) => {
     const li = document.createElement("li");
     li.innerHTML = `${item} <button>삭제</button>`;
     li.querySelector("button").onclick = () => {
       list.splice(idx, 1);
-      state.schedules[todayKey] = list;
+      state.schedules[scheduleDate] = list;
       saveState();
       renderTodaySchedule();
+      renderSelectedDateSchedules();
     };
     el.scheduleList.appendChild(li);
   });
@@ -436,12 +440,14 @@ function renderTodaySchedule() {
 function addTodaySchedule() {
   const v = el.scheduleInput.value.trim();
   if (!v) return;
-  const list = state.schedules[todayKey] || [];
+  const scheduleDate = state.selectedDate || todayKey;
+  const list = state.schedules[scheduleDate] || [];
   list.push(v);
-  state.schedules[todayKey] = list;
+  state.schedules[scheduleDate] = list;
   el.scheduleInput.value = "";
   saveState();
   renderTodaySchedule();
+  renderSelectedDateSchedules();
 }
 
 function renderCalendar() {
@@ -473,6 +479,7 @@ function renderCalendar() {
       calendarCursor = new Date(y, m, 1);
       saveState();
       renderCalendar();
+      renderTodaySchedule();
       renderSelectedDateSchedules();
     };
     el.calendarGrid.appendChild(cell);
@@ -667,6 +674,7 @@ function initActions() {
     state.selectedDate = todayKey;
     saveState();
     renderCalendar();
+    renderTodaySchedule();
     renderSelectedDateSchedules();
   };
 
