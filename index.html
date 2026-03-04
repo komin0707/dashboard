@@ -18,6 +18,27 @@
     </header>
 
     <main class="layout">
+      <section class="panel patients-panel">
+        <div class="panel-header">
+          <h2>환자 목록</h2>
+          <div class="inline-actions">
+            <button id="addPatientBtn">환자 추가</button>
+            <label class="import-label" for="excelInput">Excel/CSV 불러오기<input id="excelInput" type="file" accept=".xlsx,.xls,.csv" hidden aria-label="Excel 또는 CSV 파일 불러오기" /></label>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>병실</th>
+              <th>환자명</th>
+              <th>담당교수</th>
+              <th>작업</th>
+            </tr>
+          </thead>
+          <tbody id="patientTableBody"></tbody>
+        </table>
+      </section>
+
       <section class="panel patient-panel">
         <div class="panel-header">
           <h2>게시판</h2>
@@ -168,6 +189,25 @@
 
         <div class="dialog-actions">
           <button>닫기</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="patientDialog">
+      <form method="dialog" class="patient-form">
+        <h3>환자 정보</h3>
+        <input id="patientId" type="hidden" />
+        <label>병실 <input id="room" /></label>
+        <label>등록번호 <input id="regNo" /></label>
+        <label>환자명 <input id="name" /></label>
+        <label>담당교수 <input id="professor" /></label>
+        <label>배경<br /><textarea id="background" rows="3"></textarea></label>
+        <label>진단<br /><textarea id="diagnosis" rows="3"></textarea></label>
+        <label>메모<br /><textarea id="note" rows="3"></textarea></label>
+        <div class="dialog-actions">
+          <button type="button" id="savePatientBtn">저장</button>
+          <button type="button" id="deletePatientBtn">삭제</button>
+          <button type="button" id="closePatientDialogBtn">닫기</button>
         </div>
       </form>
     </dialog>
