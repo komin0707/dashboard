@@ -437,3 +437,10 @@ small {
   border-radius: 10px;
   background: #fff;
 }
+
+.education-viewer-hint {
+  margin: 8px 0 0;
+  color: #c9dcff;
+  font-size: 13px;
+  min-height: 20px;
+}
