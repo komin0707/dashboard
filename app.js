@@ -62,7 +62,29 @@ function ensureEducationCatalog() {
 function toFileUrl(path) {
   const normalized = String(path || "").trim();
   if (!normalized) return "";
-  return normalized.startsWith("file://") ? normalized : `file:///${normalized.replace(/\\/g, "/")}`;
+
+  if (/^file:\/\//i.test(normalized)) {
+    return normalized;
+  }
+
+  const slashNormalized = normalized.replace(/\\/g, "/");
+
+  // UNC path (e.g. \\server\share\tool.exe -> file://server/share/tool.exe)
+  if (slashNormalized.startsWith("//")) {
+    return `file:${encodeURI(slashNormalized)}`;
+  }
+
+  // Windows drive path (e.g. C:\\tools\\macro.exe -> file:///C:/tools/macro.exe)
+  if (/^[a-zA-Z]:\//.test(slashNormalized)) {
+    return `file:///${encodeURI(slashNormalized)}`;
+  }
+
+  // Absolute unix-like path (/opt/tool.exe) or a relative fallback
+  if (slashNormalized.startsWith("/")) {
+    return `file://${encodeURI(slashNormalized)}`;
+  }
+
+  return `file:///${encodeURI(slashNormalized)}`;
 }
 
 const el = {
@@ -539,8 +561,7 @@ function openPath(path) {
     return;
   }
 
-  const normalized = path.trim();
-  const fileUrl = normalized.startsWith("file://") ? normalized : `file:///${normalized.replace(/\\/g, "/")}`;
+  const fileUrl = toFileUrl(path);
   window.open(fileUrl, "_blank");
 }
 
@@ -553,7 +574,7 @@ function launchKominNu() {
     return;
   }
 
-  const fileUrl = programPath.startsWith("file://") ? programPath : `file:///${programPath.replace(/\\/g, "/")}`;
+  const fileUrl = toFileUrl(programPath);
   window.open(fileUrl, "_blank");
 }
 
@@ -563,7 +584,7 @@ function launchForceStop() {
     alert("전체 설정에서 강제종료 실행 파일 경로를 입력해주세요.");
     return;
   }
-  const fileUrl = programPath.startsWith("file://") ? programPath : `file:///${programPath.replace(/\\/g, "/")}`;
+  const fileUrl = toFileUrl(programPath);
   window.open(fileUrl, "_blank");
 }
 
